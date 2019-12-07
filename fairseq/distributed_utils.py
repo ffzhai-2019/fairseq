@@ -23,7 +23,12 @@ def infer_init_method(args):
     if args.distributed_init_method is not None:
         return
 
-    # support torch.distributed.launch
+    # support torch.distributed.launch 多机训练 
+    # torch.distributed.launch 位置：/path-to-torch/torch/distributed/launch.py
+    # torch.distributed.launch 会根据输入的nproc_per_node数目循环调用train.py来创建子进程 
+    # 每个进程使用的本节点的GPU id作为local_rank参数，传入运行代码
+    # 环境变量RANK中存放，当前GPU在所有节点的所有GPU中的ID
+    # 环境变量WORLD_SIZE 存放，多机训练时使用的所有的GPU的数目：nnodes*nproc_per_node
     if all(key in os.environ for key in [
         'MASTER_ADDR', 'MASTER_PORT', 'WORLD_SIZE', 'RANK'
     ]):
@@ -68,7 +73,7 @@ def infer_init_method(args):
                 pass
 
 
-def distributed_init(args):
+def distributed_init(args): ## 单机多卡和多机多卡训练都会调用这个函数
     if args.distributed_world_size == 1:
         raise ValueError('Cannot initialize distributed with distributed_world_size=1')
 
@@ -78,23 +83,25 @@ def distributed_init(args):
         print('| distributed init (rank {}): {}'.format(
             args.distributed_rank, args.distributed_init_method), flush=True)
         dist.init_process_group(
-            backend=args.distributed_backend,
-            init_method=args.distributed_init_method,
-            world_size=args.distributed_world_size,
-            rank=args.distributed_rank,
+            backend=args.distributed_backend, ## 设置什么样的backend，用于操作分布式的数据传输和通信等工作
+            init_method=args.distributed_init_method, ## 设置 distributed_init_method 为 'env://'
+            world_size=args.distributed_world_size, ## 所有使用的GPU的数量：nnodes * nproc_per_node
+            rank=args.distributed_rank, ## 告诉backend，当前gpu在所有gpu上的id
         )
         print('| initialized host {} as rank {}'.format(
             socket.gethostname(), args.distributed_rank), flush=True)
 
         # perform a dummy all-reduce to initialize the NCCL communicator
         if torch.cuda.is_available():
-            dist.all_reduce(torch.zeros(1).cuda())
+            ##inplace操作，把各个gpu上的tensor进行合并。默认设置为同步、加法
+            ##相当于此处把各个GPU进行一次同步
+            dist.all_reduce(torch.zeros(1).cuda()) 
         else:
             dist.all_reduce(torch.zeros(1))
 
-        suppress_output(is_master(args))
+        suppress_output(is_master(args)) ##重置print函数，只在master GPU即distributed_rank=0的GPU上进行打印。
 
-    args.distributed_rank = torch.distributed.get_rank()
+    args.distributed_rank = torch.distributed.get_rank() ##获取当前GPU在所有GPU中的id
     return args.distributed_rank
 
 

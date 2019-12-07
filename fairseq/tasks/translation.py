@@ -166,7 +166,7 @@ class TranslationTask(FairseqTask):
         Args:
             args (argparse.Namespace): parsed command-line arguments
         """
-        args.left_pad_source = options.eval_bool(args.left_pad_source)
+        args.left_pad_source = options.eval_bool(args.left_pad_source) ## 默认为source和target都是在句子左侧padding
         args.left_pad_target = options.eval_bool(args.left_pad_target)
         if getattr(args, 'raw_text', False):
             utils.deprecation_warning('--raw-text is deprecated, please use --dataset-impl=raw')
@@ -202,7 +202,7 @@ class TranslationTask(FairseqTask):
         """
         paths = self.args.data.split(':')
         assert len(paths) > 0
-        data_path = paths[epoch % len(paths)]
+        data_path = paths[epoch % len(paths)] ## 引入epoch id应该是为了应对每个epoch不一样的数据的情况
 
         # infer langcode
         src, tgt = self.args.source_lang, self.args.target_lang

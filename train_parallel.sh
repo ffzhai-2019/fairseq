@@ -15,6 +15,9 @@ TENSORBOARDDIR=$EXPDIR/log
 #                --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
 #                --max-tokens 3584 --update-freq 6 --distributed-world-size 8 --save-dir $MODELDIR --max-source-positions 300 --max-target-positions 300
 
+
+# torch.distributed.launch 位置：/path-to-torch/torch/distributed/launch.py
+# torch.distributed.launch 会根据输入的nproc_per_node数目循环创建子进程, 并把local_rank(GPU在当前节点上的id)传给train.py
 python -m torch.distributed.launch --nproc_per_node=8 \
     --nnodes=2 --node_rank=0 --master_addr="10.141.202.59" \
     --master_port=1234 \

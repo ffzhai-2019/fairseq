@@ -31,19 +31,21 @@ def main(args, init_distributed=False):
         torch.cuda.set_device(args.device_id)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    if init_distributed:
+    if init_distributed: ## 单机多卡和多机多卡训练都会调用这个函数
         args.distributed_rank = distributed_utils.distributed_init(args)
 
-    if distributed_utils.is_master(args):
-        checkpoint_utils.verify_checkpoint_directory(args.save_dir)
+    if distributed_utils.is_master(args): ## 判断当前GPU是否是master GPU（args.distributed_rank = 0）
+        checkpoint_utils.verify_checkpoint_directory(args.save_dir) ## 确认checkpoint的目标存储路径
 
     # Print args
     print(args)
 
     # Setup task, e.g., translation, language modeling, etc.
-    task = tasks.setup_task(args)
+    ## 创建对应的TranslationTask类，读入两个dictionary: self.src_dict, self.tgt_dict, 并确定是left paddig or right padding
+    task = tasks.setup_task(args) 
 
-    # Load valid dataset (we load training data below, based on the latest checkpoint)
+    # Load valid dataset (we load training data below, based on the latest checkpoint) 
+    # 用于验证的开发集, 每个集合的名字为valid_sub_split。load之后，根据valid_sub_split的名字存放在task.datasets中
     for valid_sub_split in args.valid_subset.split(','):
         task.load_dataset(valid_sub_split, combine=False, epoch=0)
 
@@ -290,22 +292,28 @@ def get_valid_stats(trainer, args, extra_meters=None):
 
 
 def distributed_main(i, args, start_rank=0):
-    args.device_id = i
+    args.device_id = i ## 表示使用当前节点的第几个GPU
     if args.distributed_rank is None:  # torch.multiprocessing.spawn
         args.distributed_rank = start_rank + i
     main(args, init_distributed=True)
 
 
 def cli_main():
-    parser = options.get_training_parser()
+    parser = options.get_training_parser() ## 获取相关参数
     args = options.parse_args_and_arch(parser)
 
-    if args.distributed_init_method is None:
+    if args.distributed_init_method is None: ## distributed_init_method 一般使用默认参数None, 多机训练配置
+        # 每个进程使用的本节点的GPU id作为local_rank参数，传入运行代码
+        #设置args.distributed_world_size 多机训练使用的所有GPU数量：nnodes * nproc_per_node
+        #设置args.distributed_rank 当前GPU在所有节点的所有GPU中的ID
         distributed_utils.infer_init_method(args)
 
-    if args.distributed_init_method is not None:
+    if args.distributed_init_method is not None: ##多机多卡训练
         # distributed training
         if torch.cuda.device_count() > 1 and not args.distributed_no_spawn:
+            ## 当前进程再使用torch的multiprocessing spawn出多个process来使用多个GPU, 
+            ## 但由于torch.distributed.launch包通过循环调用train.py, 已经为每个GPU循环创建了进程，
+            ## 所以最好设置 distributed_no_spawn 为True, 每个进程只使用一个GPU
             start_rank = args.distributed_rank
             args.distributed_rank = None  # assign automatically
             torch.multiprocessing.spawn(
@@ -313,9 +321,9 @@ def cli_main():
                 args=(args, start_rank),
                 nprocs=torch.cuda.device_count(),
             )
-        else:
-            distributed_main(args.device_id, args)
-    elif args.distributed_world_size > 1:
+        else: ## 设置distributed_no_spawn为True后，torch.distributed.launch创建的每个进程会直接调用distributed_main
+            distributed_main(args.device_id, args)  ## args.device_id就是args.local_rank，因此就是当前节点的GPU ID
+    elif args.distributed_world_size > 1: ##单机多卡训练
         # fallback for single node with multiple GPUs
         assert args.distributed_world_size <= torch.cuda.device_count()
         port = random.randint(10000, 20000)
