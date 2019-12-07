@@ -31,7 +31,10 @@ def main(args, init_distributed=False):
         torch.cuda.set_device(args.device_id)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    if init_distributed: ## 单机多卡和多机多卡训练都会调用这个函数
+    if init_distributed:
+        ## 单机多卡和多机多卡训练都会调用这个函数
+        ## 此函数中调用init_process_group函数，
+        ## 此时还没有load数据，因此应该就没有了之前版本多机训练时因为load数据速度不同导致的超时问题
         args.distributed_rank = distributed_utils.distributed_init(args)
 
     if distributed_utils.is_master(args): ## 判断当前GPU是否是master GPU（args.distributed_rank = 0）
@@ -50,8 +53,8 @@ def main(args, init_distributed=False):
         task.load_dataset(valid_sub_split, combine=False, epoch=0)
 
     # Build model and criterion
-    model = task.build_model(args)
-    criterion = task.build_criterion(args)
+    model = task.build_model(args) ## 搭建神经网络模型, 翻译即使用TransformerModel类, 继承自FairseqEncoderDecoderModel
+    criterion = task.build_criterion(args) ## 搭建loss函数, 此处即使用LabelSmoothedCrossEntropyCriterion
     print(model)
     print('| model {}, criterion {}'.format(args.arch, criterion.__class__.__name__))
     print('| num. model params: {} (num. trained: {})'.format(
@@ -60,6 +63,7 @@ def main(args, init_distributed=False):
     ))
 
     # Build trainer
+    # 如果distributed_world_size > 1, 则会对model和criterion使用models.DistributedFairseqModel进行wrap
     trainer = Trainer(args, task, model, criterion)
     print('| training on {} GPUs'.format(args.distributed_world_size))
     print('| max tokens per GPU = {} and max sentences per GPU = {}'.format(

@@ -119,16 +119,16 @@ class LegacyDistributedDataParallel(nn.Module):
                     buffer = torch.zeros_like(p)
 
             if nonzero_buffer:
-                buffer.div_(self.world_size)
+                buffer.div_(self.world_size) ## gradient先做除法
 
-            distributed_utils.all_reduce(buffer, self.process_group)
+            distributed_utils.all_reduce(buffer, self.process_group) ## 各个GPU对应参数的gradient相加，
 
             # copy all-reduced grads back into their original place
             offset = 0
             for p in params:
                 sz = p.numel()
                 if p.grad is not None:
-                    p.grad.data.copy_(buffer[offset:offset+sz].view_as(p))
+                    p.grad.data.copy_(buffer[offset:offset+sz].view_as(p)) #同步更新过后的grad写入各个参数自己的grad
                 else:
                     p.grad = buffer[offset:offset+sz].view_as(p).clone()
                 offset += sz

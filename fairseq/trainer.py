@@ -89,7 +89,7 @@ class Trainer(object):
                 utils.has_parameters(self._criterion)
                 and self.args.distributed_world_size > 1
                 and not self.args.use_bmuf
-            ):
+            ): ##若进行多卡训练，使用DistributedFairseqModel对self._criterion进行wrap
                 self._wrapped_criterion = models.DistributedFairseqModel(
                     self.args, self._criterion
                 )
@@ -100,6 +100,7 @@ class Trainer(object):
     @property
     def model(self):
         if self._wrapped_model is None:
+            ##若进行多卡训练，使用DistributedFairseqModel对self._model进行wrap
             if self.args.distributed_world_size > 1 and not self.args.use_bmuf:
                 self._wrapped_model = models.DistributedFairseqModel(
                     self.args, self._model
