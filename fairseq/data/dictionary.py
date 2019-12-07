@@ -26,9 +26,9 @@ class Dictionary(object):
         extra_special_symbols=None,
     ):
         self.unk_word, self.pad_word, self.eos_word = unk, pad, eos
-        self.symbols = []
-        self.count = []
-        self.indices = {}
+        self.symbols = [] ## 根据id存放对应token
+        self.count = [] ## 根据id存放每个token的数量
+        self.indices = {} ##以token为可以索引它的id
         self.bos_index = self.add_symbol(bos)
         self.pad_index = self.add_symbol(pad)
         self.eos_index = self.add_symbol(eos)

@@ -303,11 +303,14 @@ class IndexedDatasetBuilder(object):
 
     def add_item(self, tensor):
         # +1 for Lua compatibility
-        bytes = self.out_file.write(np.array(tensor.numpy() + 1, dtype=self.dtype))
-        self.data_offsets.append(self.data_offsets[-1] + bytes / self.element_size)
+        #self.data_offsets: 存放每个tensor在二进制文件中的结尾位置（前一个tensor的结尾处就是这个tensor的开始位置）
+        #self.sizes: 存放每个tensor的shape的各个dim值
+        #self.dim_offsets: 存放每个tensor的shape在self.size中的结尾位置（前面tensor shape的结尾是这个tensor shape的开始）
+        bytes = self.out_file.write(np.array(tensor.numpy() + 1, dtype=self.dtype)) ## 写入的byte数量
+        self.data_offsets.append(self.data_offsets[-1] + bytes / self.element_size) ## 当前tensor在二进制文件中的结尾位置
         for s in tensor.size():
-            self.sizes.append(s)
-        self.dim_offsets.append(self.dim_offsets[-1] + len(tensor.size()))
+            self.sizes.append(s) ## 存放当前tensor的shape的各个dim值
+        self.dim_offsets.append(self.dim_offsets[-1] + len(tensor.size())) ##当前tensor的shape在sizes中的结尾位置
 
     def merge_file_(self, another_file):
         index = IndexedDataset(another_file)

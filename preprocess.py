@@ -75,9 +75,12 @@ def main(args):
         tgt_dict = src_dict
     else:
         if args.srcdict:
+            ## 默认dictionary中加入四个token：0:bos <s>, 1:pad <pad>, 2:eos <\s>, 3:unk <unk>
+            ## 使用load_dictionary，依然会首先加入这4个token，然后再依次为dictionary中的词分配id
             src_dict = task.load_dictionary(args.srcdict)
         else:
             assert args.trainpref, "--trainpref must be set if --srcdict is not specified"
+            ## 默认dictionary中加入四个token：0:bos <s>, 1:pad <pad>, 2:eos <\s>, 3:unk <unk>
             src_dict = build_dictionary([train_path(args.source_lang)], src=True)
 
         if target:
@@ -106,7 +109,7 @@ def main(args):
         input_file = "{}{}".format(
             input_prefix, ("." + lang) if lang is not None else ""
         )
-        offsets = Binarizer.find_offsets(input_file, num_workers)
+        offsets = Binarizer.find_offsets(input_file, num_workers) ## 多个worker时，每个worker对文件的读取范围
         pool = None
         if num_workers > 1:
             pool = Pool(processes=num_workers - 1)
@@ -140,7 +143,7 @@ def main(args):
             for worker_id in range(1, num_workers):
                 prefix = "{}{}".format(output_prefix, worker_id)
                 temp_file_path = dataset_dest_prefix(args, prefix, lang)
-                ds.merge_file_(temp_file_path)
+                ds.merge_file_(temp_file_path) ##所各个worker存储的临时文件进行合并到最终文件，完成之后删除临时文件
                 os.remove(indexed_dataset.data_file_path(temp_file_path))
                 os.remove(indexed_dataset.index_file_path(temp_file_path))
 
@@ -242,9 +245,9 @@ def main(args):
         if args.testpref and os.path.exists(args.testpref + "." + args.align_suffix):
             make_binary_alignment_dataset(args.testpref + "." + args.align_suffix, "test.align", num_workers=args.workers)
 
-    make_all(args.source_lang, src_dict)
+    make_all(args.source_lang, src_dict) ## 调用make_dataset来build所有源端数据
     if target:
-        make_all(args.target_lang, tgt_dict)
+        make_all(args.target_lang, tgt_dict) ## 调用make_dataset来build 所有目标端数据
     if args.align_suffix:
         make_all_alignments()
 
@@ -294,14 +297,28 @@ def main(args):
 
 
 def binarize(args, filename, vocab, output_prefix, lang, offset, end, append_eos=True):
+    ##dataset_impl=mmap, ds -> MMapIndexedDatasetBuilder
+    ##dataset_impl=lazy, ds -> IndexedDatasetBuilder
     ds = indexed_dataset.make_builder(dataset_dest_file(args, output_prefix, lang, "bin"),
                                       impl=args.dataset_impl, vocab_size=len(vocab))
 
     def consumer(tensor):
+        ##输入的tensor，就是直接把文本串通过dictionary转为id串
+        ##dataset_impl=mmap, MMapIndexedDatasetBuilder.add_item:把输入tensor直接写入文件
+        ##dataset_impl=lazy, IndexedDatasetBuilder.add_item:把输入tensor写入文件，并更新sizes, data_offsets, dim_offsets
         ds.add_item(tensor)
 
+    ## 读入文件filename在offset和end之间的内容，并把每个文本串利用dictionary转为id串，利用consumer函数写入到ds中
     res = Binarizer.binarize(filename, vocab, consumer, append_eos=append_eos,
                              offset=offset, end=end)
+
+    ##把写入到ds中的数据存储到对应路径的临时文件, output_prefix包含了worker_id，以区分不同的worker的临时文件
+    ##mmap, ds.finalize:调用MMapIndexedDataset.write写入三个tensor:
+    ##      训练样例数量，每个样例tensor的size，每个样例的位置pointer
+    ##lazy, ds.finalize:IndexedDatasetBuilder.finalize直接写入dim_offsets, data_offsets, sizes
+    #       data_offsets: 存放每个tensor在二进制文件中的结尾位置（前一个tensor的结尾处就是这个tensor的开始位置）
+    #       sizes: 存放每个tensor的shape的各个dim值
+    #       dim_offsets: 存放每个tensor的shape在self.size中的结尾位置（前面tensor shape的结尾是这个tensor shape的开始）
     ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
     return res
 
