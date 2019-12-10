@@ -10,4 +10,4 @@ python -u train.py $DATADIR/train_data --tensorboard-logdir $TENSORBOARDDIR --lo
                 --lr 0.001 --min-lr 1e-09 \
                 --dropout 0.3 --weight-decay 0.0 \
                 --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
-                --max-tokens 3584 --distributed-world-size 8 --save-dir $MODELDIR
+                --max-tokens 3584 --distributed-world-size 8 --save-dir $MODELDIR --dataset-impl mmap

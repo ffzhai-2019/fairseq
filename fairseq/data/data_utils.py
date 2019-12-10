@@ -63,13 +63,16 @@ def load_indexed_dataset(path, dictionary, dataset_impl=None, combine=False, def
     import fairseq.data.indexed_dataset as indexed_dataset
 
     datasets = []
-    for k in itertools.count():
-        path_k = path + (str(k) if k > 0 else '')
+    for k in itertools.count(): ## 从0开始，无限加1遍历，用于存在多个训练集的情况
+        path_k = path + (str(k) if k > 0 else '') ##k=0时，名字不加入id，用于存在多个训练集的情况
 
         dataset_impl_k = dataset_impl
         if dataset_impl_k is None:
             dataset_impl_k = indexed_dataset.infer_dataset_impl(path_k)
 
+        #dataset_impl_k==lazy -->IndexedDataset类，
+        #调用make_dataset函数构建IndexedDataset对象，并读入数据索引相关信息，即读入.idx后缀的文件。 
+        #之后可以如同list按id索引数据，每次索引都是直接从二进制文件读取
         dataset = indexed_dataset.make_dataset(
             path_k,
             impl=dataset_impl_k or default,

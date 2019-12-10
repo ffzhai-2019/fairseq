@@ -37,8 +37,8 @@ def load_langpair_dataset(
     src_datasets = []
     tgt_datasets = []
 
-    for k in itertools.count():
-        split_k = split + (str(k) if k > 0 else '')
+    for k in itertools.count(): ## 从0开始，不断加1遍历
+        split_k = split + (str(k) if k > 0 else '') ## k ==0时，名字不加k。这个方式用于包含多个训练集文件
 
         # infer langcode
         if split_exists(split_k, src, tgt, src, data_path):

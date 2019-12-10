@@ -169,7 +169,7 @@ class EpochBatchIterator(EpochBatchIterating):
         assert isinstance(dataset, torch.utils.data.Dataset)
         self.dataset = dataset
         self.collate_fn = collate_fn
-        self.frozen_batches = tuple(batch_sampler)
+        self.frozen_batches = tuple(batch_sampler)#batch_sampler:一个list,每个值也是一个list,存放每个batch的sen IDs
         self.seed = seed
         self.num_shards = num_shards
         self.shard_id = shard_id
@@ -249,26 +249,34 @@ class EpochBatchIterator(EpochBatchIterating):
             return batches
 
         if self._supports_prefetch:
-            batches = self.frozen_batches
+            batches = self.frozen_batches ## 一个tuple，每个值是一个list，存放每个batch包含的句子id
 
             if shuffle and not fix_batches_to_gpus:
                 batches = shuffle_batches(list(batches), self.seed + epoch)
 
             batches = list(ShardedIterator(
                 batches, self.num_shards, self.shard_id, fill_value=[]
-            ))
-            self.dataset.prefetch([i for s in batches for i in s])
+            )) #每个GPU获取属于自己的那份数据的batchs, batchs是一个list，每个值也是list，存放每个batch包含的句子id
 
+            #每个GPU prefetch属于自己的那些数据.
+            #虽然每次GPU只prefetch自己那份数据，如果每次都shuffle batches，
+            #由于读入的数据不消失，因此每个GPU所需要的内存其实随着epoch的增加时增加的。
+            #这也是为什么训练的时候，每个进程所使用的内存会不断增加，到时训练到一定阶段会报内存不够问题的原因
+            #如果设置fix_batches_to_gpus, 那么每个GPU获取到的数据都是相同的，会损害全局的随机性。
+            #但也避免了内存增加的问题，以及每个epoch prefetch数据所造成的时间损耗。
+            self.dataset.prefetch([i for s in batches for i in s]) 
+
+            #如果设置fix_batches_to_gpus, 可以GPU自己的层面进行shuffle
             if shuffle and fix_batches_to_gpus:
                 batches = shuffle_batches(batches, self.seed + epoch + self.shard_id)
         else:
             if shuffle:
                 batches = shuffle_batches(list(self.frozen_batches), self.seed + epoch)
             else:
-                batches = self.frozen_batches
+                batches = self.frozen_batches   ## 一个tuple，每个值是一个list，存放每个batch包含的句子id
             batches = list(ShardedIterator(
                 batches, self.num_shards, self.shard_id, fill_value=[]
-            ))
+            ))#每个GPU获取属于自己的那份数据的batchs, batchs是一个list，每个值也是list，存放每个batch包含的句子id
 
         if offset > 0 and offset >= len(batches):
             return None

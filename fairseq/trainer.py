@@ -258,13 +258,14 @@ class Trainer(object):
         if load_dataset:
             print("| loading train data for epoch {}".format(epoch))
             self.task.load_dataset(
-                self.args.train_subset,
+                self.args.train_subset, ## 默认为train，告诉dataloader需要load的数据的名字前缀
                 epoch=epoch,
                 combine=combine,
                 data_selector=data_selector,
             )
+        ##生成一个EpochBatchIterator
         return self.task.get_batch_iterator(
-            dataset=self.task.dataset(self.args.train_subset),
+            dataset=self.task.dataset(self.args.train_subset), ## 翻译任务：LanguagePairDataset
             max_tokens=self.args.max_tokens,
             max_sentences=self.args.max_sentences,
             max_positions=utils.resolve_max_positions(

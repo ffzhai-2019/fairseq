@@ -7,4 +7,4 @@ python preprocess.py --source-lang en --target-lang de \
                      --testpref $CORPUS/newstest2014.tok.bpe.32000 \
                      --destdir $EXPDIR/train_data \
                      --nwordssrc 32768 --nwordstgt 32768 \
-                     --joined-dictionary --workers 30
+                     --joined-dictionary --workers 30 --dataset-impl mmap

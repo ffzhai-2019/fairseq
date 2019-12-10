@@ -131,7 +131,8 @@ class FairseqTask(object):
         """
         # For default fairseq task, return same iterator across epochs
         # as datasets are not dynamic, can be overridden in task specific
-        # setting.
+        # setting. # 如果不是每个epoch都换数据，那么就可以直接用上次构建的epoch_itr的结果
+        # 这样的问题就是, 如果不是每个epoch换数据，那么同一个数据在epoch与epoch之间就不会随机，减低了全局随机性
         if dataset in self.dataset_to_epoch_iter:
             return self.dataset_to_epoch_iter[dataset]
 
@@ -140,21 +141,24 @@ class FairseqTask(object):
         # initialize the dataset with the correct starting epoch
         dataset.set_epoch(epoch)
 
-        # get indices ordered by example size
+        # get indices ordered by example size ## 依照这个顺序读取数据生成batch
         with data_utils.numpy_seed(seed):
             indices = dataset.ordered_indices()
 
         # filter examples that are too large
-        if max_positions is not None:
+        if max_positions is not None: ## 把长度不符合条件的indice从indices中去掉, 根据dataset.size函数
             indices = data_utils.filter_by_size(
                 indices, dataset, max_positions, raise_exception=(not ignore_invalid_inputs),
             )
 
-        # create mini-batches with given size constraints
+        print("indices length and type", len(indices), type(indices))
+        # create mini-batches with given size constraints 
+        # batch_sampler应该是一个大list，每个值也是一个list，存放各个batch包含的sen IDs.
         batch_sampler = data_utils.batch_by_size(
             indices, dataset.num_tokens, max_tokens=max_tokens, max_sentences=max_sentences,
             required_batch_size_multiple=required_batch_size_multiple,
         )
+        print("batch_sampler length and type", len(batch_sampler), type(batch_sampler))
 
         # return a reusable, sharded iterator
         epoch_iter = iterators.EpochBatchIterator(
@@ -168,6 +172,7 @@ class FairseqTask(object):
             epoch=epoch,
         )
         self.dataset_to_epoch_iter[dataset] = epoch_iter
+        print(self.dataset_to_epoch_iter)
         return epoch_iter
 
     def build_model(self, args):

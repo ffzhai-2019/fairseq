@@ -73,7 +73,7 @@ def main(args, init_distributed=False):
 
     # Load the latest checkpoint if one is available and restore the
     # corresponding train iterator
-    extra_state, epoch_itr = checkpoint_utils.load_checkpoint(args, trainer)
+    extra_state, epoch_itr = checkpoint_utils.load_checkpoint(args, trainer) ## generate data iterator, epoch_itr
 
     # Train until the learning rate gets too small
     max_epoch = args.max_epoch or math.inf
@@ -103,6 +103,7 @@ def main(args, init_distributed=False):
         if epoch_itr.epoch % args.save_interval == 0:
             checkpoint_utils.save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
 
+        ##每个epoch都新建一个epoch data iterator来遍历所有的训练数据
         reload_dataset = ':' in getattr(args, 'data', '')
         # sharded data: get train iterator for next epoch
         epoch_itr = trainer.get_train_iterator(epoch_itr.epoch, load_dataset=reload_dataset)
@@ -116,7 +117,7 @@ def train(args, trainer, task, epoch_itr):
     update_freq = args.update_freq[epoch_itr.epoch - 1] \
         if epoch_itr.epoch <= len(args.update_freq) else args.update_freq[-1]
 
-    # Initialize data iterator
+    # Initialize data iterator, iter是一个CountingIterator包裹下的torch.utils.data.DataLoader, 每次遍历一个batch
     itr = epoch_itr.next_epoch_itr(
         fix_batches_to_gpus=args.fix_batches_to_gpus,
         shuffle=(epoch_itr.epoch >= args.curriculum),
