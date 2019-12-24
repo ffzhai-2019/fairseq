@@ -125,9 +125,10 @@ class Trainer(object):
         params = list(
             filter(
                 lambda p: p.requires_grad,
-                chain(self.model.parameters(), self.criterion.parameters()),
+                ## chain函数:接受一个可迭代对象列表作为输入，并返回一个迭代器, 顺次迭代所有对象的内容
+                chain(self.model.parameters(), self.criterion.parameters()), 
             )
-        )
+        ) ## 获取需要优化的参数列表, 此参数列表是通过nn.Module.parameters()获取，通过递归遍历Module的所有submodule和其所有的torch.nn.Parameter对象获取。这些submodule和parameter都是在Module的属性赋值时根据类型进行分类存储得到的
 
         if self.args.fp16:
             if self.cuda and torch.cuda.get_device_capability(0)[0] < 7:
