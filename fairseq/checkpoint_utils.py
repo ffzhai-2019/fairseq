@@ -25,7 +25,7 @@ def save_checkpoint(args, trainer, epoch_itr, val_loss):
         best_function = max if args.maximize_best_checkpoint_metric else min
         save_checkpoint.best = best_function(val_loss, prev_best)
 
-    if args.no_save or not distributed_utils.is_master(args):
+    if args.no_save or not distributed_utils.is_master(args): ## 分布式训练条件下，如果不是master，不存储checkpoint
         return
 
     def is_better(a, b):
@@ -34,26 +34,28 @@ def save_checkpoint(args, trainer, epoch_itr, val_loss):
     write_timer = meters.StopwatchMeter()
     write_timer.start()
 
-    epoch = epoch_itr.epoch
-    end_of_epoch = epoch_itr.end_of_epoch()
-    updates = trainer.get_num_updates()
+    epoch = epoch_itr.epoch ## 当前的epoch
+    end_of_epoch = epoch_itr.end_of_epoch() ## bool, 是否当前epoch结束
+    updates = trainer.get_num_updates() ##记录已经进行了多少次更新
 
     checkpoint_conds = collections.OrderedDict()
     checkpoint_conds["checkpoint{}.pt".format(epoch)] = (
         end_of_epoch
         and not args.no_epoch_checkpoints
-        and epoch % args.save_interval == 0
+        and epoch % args.save_interval == 0 ## save_interval指的是每几个epoch存储checkpoint，默认是1
     )
     checkpoint_conds["checkpoint_{}_{}.pt".format(epoch, updates)] = (
         not end_of_epoch
         and args.save_interval_updates > 0
-        and updates % args.save_interval_updates == 0
+        and updates % args.save_interval_updates == 0 ## save_interval_updates指的是没多少个update存储checkpoint
     )
     checkpoint_conds["checkpoint_best.pt"] = val_loss is not None and (
         not hasattr(save_checkpoint, "best")
-        or is_better(val_loss, save_checkpoint.best)
+        or is_better(val_loss, save_checkpoint.best) ## 根据valid_loss来判断当前是否是best checkpoint
     )
-    checkpoint_conds["checkpoint_last.pt"] = not args.no_last_checkpoints
+
+    ## 如果设定使用last_checkpoint, 则每次存储都要更新checkpoint_last.pt
+    checkpoint_conds["checkpoint_last.pt"] = not args.no_last_checkpoints 
 
     extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
     if hasattr(save_checkpoint, "best"):
@@ -255,17 +257,17 @@ def save_state(
             {
                 "criterion_name": criterion.__class__.__name__,
                 "optimizer_name": optimizer.__class__.__name__,
-                "lr_scheduler_state": lr_scheduler.state_dict(),
+                "lr_scheduler_state": lr_scheduler.state_dict(),#重写nn.Module的state_dict,返回self.best,不知用途
                 "num_updates": num_updates,
             }
         ],
         "extra_state": extra_state,
     }
     if utils.has_parameters(criterion):
-        state_dict["criterion"] = criterion.state_dict()
+        state_dict["criterion"] = criterion.state_dict()#同model，调nn.Module的state_dict，所有都是nn.Module子类
     if not args.no_save_optimizer_state:
         state_dict["last_optimizer_state"] = convert_state_dict_type(
-            optimizer.state_dict()
+            optimizer.state_dict() ##调用fairseq_optimizer._optimizer的state_dict，其实就是nn.Module的state_dict
         )
 
     with PathManager.open(filename, "wb") as f:

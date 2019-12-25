@@ -159,10 +159,11 @@ class Trainer(object):
         """Save all training state in a checkpoint file."""
         if distributed_utils.is_master(self.args):  # only save one checkpoint
             extra_state["train_meters"] = self.meters
+            ##state_dict(): nn.Module中实现，返回dict存放module及其子module存放在_parameters和_buffers中的items
             checkpoint_utils.save_state(
                 filename,
                 self.args,
-                self.get_model().state_dict(),
+                self.get_model().state_dict(), 
                 self.get_criterion(),
                 self.optimizer,
                 self.lr_scheduler,
