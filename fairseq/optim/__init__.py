@@ -18,7 +18,11 @@ __all__ = [
     'MemoryEfficientFP16Optimizer',
 ]
 
-
+# 根据registry.py，由于各个optimizer都没有build_optimizer函数，
+# 因此在setup_registry函数中的build_x函数中，返回的就是对应class的构造函数
+# 也就是根据args.optimizer的值，这个值对应的optimizer class(比如值adam对应FairseqAdam类)没有build_optimizer函数，
+# 于是registry.setup_registry函数中的build_x函数就会返回对应class的构造函数，
+# 也就是说build_optimizer就是args.optimizer对应的optimizer的构造函数
 build_optimizer, register_optimizer, OPTIMIZER_REGISTRY = registry.setup_registry(
     '--optimizer',
     base_class=FairseqOptimizer,

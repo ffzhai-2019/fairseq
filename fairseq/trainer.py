@@ -145,6 +145,8 @@ class Trainer(object):
         else:
             if self.cuda and torch.cuda.get_device_capability(0)[0] >= 7:
                 print("| NOTICE: your device may support faster training with --fp16")
+            #通过optim/__init__.py构造的build_optimizer和args.optimizer标定的choice，直接调用对应optimizer的构造函数
+            #比如如果args.optimier指定为adam，则此处build_optimizer就是FairseqAdam类的构造函数
             self._optimizer = optim.build_optimizer(self.args, params)
 
         if self.args.use_bmuf:
