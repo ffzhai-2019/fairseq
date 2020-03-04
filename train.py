@@ -62,6 +62,11 @@ def main(args, init_distributed=False):
         sum(p.numel() for p in model.parameters() if p.requires_grad),
     ))
 
+    ##print the number of parameters of each matrix
+    #for name, param in model.named_parameters(recurse=True):
+    #    print (name, param.numel())
+    #exit(0)
+
     # Build trainer
     # 如果distributed_world_size > 1, 则会对model和criterion使用models.DistributedFairseqModel进行wrap
     trainer = Trainer(args, task, model, criterion)
